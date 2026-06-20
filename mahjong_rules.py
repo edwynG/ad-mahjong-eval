@@ -7,8 +7,7 @@ MINOR_HONORS = {'1', '9'}
 
 def is_valid_chow(pieces: list) -> bool:
     """
-    Verifica que las 3 piezas sean exactamente de la misma pinta 
-    y sean numéricamente consecutivas.
+    Verifica si una lista de exactamente 3 piezas forma un Chow válido (una secuencia consecutiva de la misma familia).
     """
     suits_in_group = [p[0] for p in pieces]
     
@@ -24,7 +23,7 @@ def is_valid_chow(pieces: list) -> bool:
 
 def classify_group(raw_group: str) -> dict:
     """
-    Clasifica un grupo crudo devolviendo un diccionario.
+    Toma la cadena de un grupo (ej: '[C2-C3-C4]') y la clasifica devolviendo un diccionario con su tipo (Pung, Kong, Chow, Par), pinta base, si es honor, y su estado (oculto o abierto).
     """
     raw = raw_group.strip()
     visibility = "unknown"

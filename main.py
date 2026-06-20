@@ -5,8 +5,10 @@ from parser import decode_play
 from mahjong_rules import classify_group
 from scorer import evaluate_hand
 
-# Función principal donde configuramos MPI para trabajar en paralelo
 def main():
+    """
+    Función principal donde configuramos MPI para trabajar en paralelo
+    """
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -38,7 +40,8 @@ def main():
             chunks[i % size].append(line)
     else:
         chunks = None
-        
+    
+    # reparte las jugadas a cada proceso
     local_lines = comm.scatter(chunks, root=0)
     
     local_results = []
@@ -72,11 +75,13 @@ def main():
         
         # Aplanar y ordenar resultados
         flat_results = []
-        for res_list in gathered_results:
+        for res_list in gathered_results: # type: ignore
             flat_results.extend(res_list)
             
-        # Función auxiliar para ordenar los resultados por su ID
         def get_sort_key(result_item):
+            """
+            Función auxiliar para ordenar los resultados por su ID
+            """
             item_id = result_item[0]
             if str(item_id).isdigit() and int(item_id) != -1:
                 return int(item_id)

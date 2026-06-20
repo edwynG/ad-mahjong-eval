@@ -8,12 +8,16 @@ MAX_TOTAL_POINTS = 20000
 
 WIND_TO_FLOWER_NUM = {'E': '1', 'S': '2', 'W': '3', 'N': '4'}
 
-# Función auxiliar para saber si un grupo está oculto o cerrado
 def is_hidden(group: dict) -> bool:
+    """
+    Función auxiliar para saber si un grupo está oculto o cerrado
+    """
     return group["visibility"] in ["closed", "concealed"]
 
-# Calcula la cuenta base tradicional sumando los puntos de cada grupo, flores y bonos
 def calculate_base_points(groups: list, flowers: list, has_chow: bool) -> tuple:
+    """
+    Calcula la cuenta base tradicional sumando los puntos de cada grupo, flores y bonos
+    """
     base = 0
     log = []
     
@@ -87,8 +91,10 @@ def calculate_base_points(groups: list, flowers: list, has_chow: bool) -> tuple:
 
     return base, log
 
-# Calcula la cantidad de multiplicadores (dobles) por características como el viento, dragones o si es limpia
 def calculate_doubles(groups: list, flowers: list, own_wind: str, round_wind: str, has_chow: bool) -> tuple:
+    """
+    Calcula la cantidad de multiplicadores (dobles) por características como el viento, dragones o si es limpia
+    """
     doubles = 0
     log = []
 
@@ -232,8 +238,10 @@ def calculate_doubles(groups: list, flowers: list, own_wind: str, round_wind: st
 
     return doubles, log
 
-# Comprueba si la mano cumple con alguna de las configuraciones raras (Clásicos o Límites)
 def detect_classic(groups: list, flowers: list, own_wind: str, round_wind: str, winning_piece: str) -> tuple:
+    """
+    Comprueba si la mano cumple con alguna de las configuraciones raras (Clásicos)
+    """
     # Verificamos si toda la mano está oculta
     all_hidden = True
     for g in groups:
@@ -501,8 +509,10 @@ def detect_classic(groups: list, flowers: list, own_wind: str, round_wind: str, 
     # Si no encaja en ninguna, devolvemos 0 puntos de clásicos
     return 0, "", []
 
-# Función principal que coordina todo el cálculo: decide si es clásica o tradicional y junta base + dobles
 def evaluate_hand(parsed_hand: dict) -> dict:
+    """
+    Función principal que coordina todo el cálculo: decide si es clásica o tradicional y junta base + dobles
+    """
     own_wind = parsed_hand["own_wind"]
     round_wind = parsed_hand["round_wind"]
     flowers = parsed_hand.get("flowers", [])
