@@ -1,5 +1,6 @@
 import re
 
+# Lee una línea completa de texto (como "1 [E / E] ...") y recorta sus pedazos: ID, vientos, piezas y flores.
 def decode_play(visual_line):
     """
     Toma una línea de entrada del dataset y la descompone en un diccionario.
