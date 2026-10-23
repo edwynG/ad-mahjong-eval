@@ -1,4 +1,7 @@
 import re
+from src.mahjong_rules import classify_group
+from src.scorer import evaluate_hand
+
 
 # Lee una línea completa de texto (como "1 [E / E] ...") y recorta sus pedazos: ID, vientos, piezas y flores.
 def decode_play(visual_line):
@@ -53,6 +56,34 @@ def decode_play(visual_line):
         "winning_piece": winning_piece
     }
 
+
+def get_sort_key(result_item):
+    """
+    Función auxiliar para ordenar los resultados por su ID numérico.
+    """
+    item_id = result_item[0]
+    if str(item_id).isdigit() and int(item_id) != -1:
+        return int(item_id)
+    return float('inf')
+
+
+def process_play(line: str) -> tuple:
+    """
+    Procesa y evalúa una sola línea de jugada:
+    la decodifica, clasifica sus grupos, calcula el puntaje y formatea la salida.
+    Retorna una tupla (id, resultado_formateado).
+    """
+    try:
+        parsed = decode_play(line)
+        parsed['visual'] = line
+        parsed['groups_details'] = [classify_group(g) for g in parsed['groups']]
+        score_data = evaluate_hand(parsed)
+        res_str = f"{line} | {score_data['base']} | {score_data['dobles']} | {score_data['total']} | {score_data['estilo']} | {score_data['log']}"
+        return (parsed['id'], res_str)
+    except Exception as e:
+        return (-1, f"{line} | 0 | 0 | 0 | ERROR | ['{str(e)}']")
+
+
 # Bloque de prueba
 if __name__ == '__main__':
     # Usando el ejemplo 1 del /docs/statement.pdf
@@ -61,3 +92,6 @@ if __name__ == '__main__':
     
     for key, value in result.items():
         print(f"{key.upper()}: {value}")
+        
+    print("\nEvaluación completa de la jugada:")
+    print(process_play(test_line)[1])

@@ -1,13 +1,12 @@
 import sys
 import time
 from mpi4py import MPI
-from parser import decode_play
-from mahjong_rules import classify_group
-from scorer import evaluate_hand
+from src.parser import process_play, get_sort_key
+
 
 def main():
     """
-    Función principal donde configuramos MPI para trabajar en paralelo
+    Función principal donde configuramos MPI para trabajar en paralelo.
     """
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -33,7 +32,6 @@ def main():
             comm.Abort(1)
             
     # Dispersar datos: El proceso Raíz (Rank 0) reparte las jugadas entre todos los procesos (Scatter)
-    local_lines = []
     if rank == 0:
         chunks = [[] for _ in range(size)]
         for i, line in enumerate(lines):
@@ -41,30 +39,11 @@ def main():
     else:
         chunks = None
     
-    # reparte las jugadas a cada proceso
+    # Repartir las jugadas a cada proceso
     local_lines = comm.scatter(chunks, root=0)
     
-    local_results = []
-    for line in local_lines:
-        try:
-            parsed = decode_play(line)
-            parsed['visual'] = line
-            # Parseamos cada grupo en detalle
-            groups_details = []
-            for g in parsed['groups']:
-                detailed_group = classify_group(g)
-                groups_details.append(detailed_group)
-                
-            parsed['groups_details'] = groups_details
-            
-            # Evaluamos la mano completa
-            score_data = evaluate_hand(parsed)
-            
-            # Formato de salida: # Visual Completo | Cuenta Base | Dobles | Total | Estilo de Mano | [Historia/log]
-            res_str = f"{line} | {score_data['base']} | {score_data['dobles']} | {score_data['total']} | {score_data['estilo']} | {score_data['log']}"
-            local_results.append((parsed['id'], res_str))
-        except Exception as e:
-            local_results.append((-1, f"{line} | 0 | 0 | 0 | ERROR | ['{str(e)}']"))
+    # Procesar jugadas locales
+    local_results = [process_play(line) for line in local_lines]
             
     # Recolectar resultados: Todos devuelven su trabajo al Raíz (Gather)
     gathered_results = comm.gather(local_results, root=0)
@@ -75,19 +54,9 @@ def main():
         
         # Aplanar y ordenar resultados
         flat_results = []
-        for res_list in gathered_results: # type: ignore
+        for res_list in gathered_results:  # type: ignore
             flat_results.extend(res_list)
             
-        def get_sort_key(result_item):
-            """
-            Función auxiliar para ordenar los resultados por su ID
-            """
-            item_id = result_item[0]
-            if str(item_id).isdigit() and int(item_id) != -1:
-                return int(item_id)
-            else:
-                return float('inf')
-                
         flat_results.sort(key=get_sort_key)
         
         # Imprimir salida
@@ -99,5 +68,7 @@ def main():
         end_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time))
         print(f"{start_str} | {end_str} | {elapsed:.4f}")
 
+
 if __name__ == '__main__':
     main()
+

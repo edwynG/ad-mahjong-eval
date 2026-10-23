@@ -2,6 +2,28 @@
 
 Este proyecto implementa un sistema distribuido en Python diseñado para procesar masivamente miles de configuraciones de jugadas de Mahjong. El sistema calcula las puntuaciones base, dobles, estilo de la mano e interpreta sintácticamente cada jugada basándose en las reglas del Mahjong (incluyendo Cantos Clásicos y Límites). Debido al alto volumen del dataset, el cálculo está paralelizado sobre un ambiente de paso de mensajes utilizando **MPI (`mpi4py`)**.
 
+## Estructura del proyecto
+
+```text
+proyect_mohjong/
+├── docs/                     # Enunciado y especificación de reglas en PDF
+├── src/                      # Módulos y motor de evaluación
+│   ├── __init__.py           # Paquete Python
+│   ├── parser.py             # Decodificación y funciones de soporte (process_play, get_sort_key)
+│   ├── mahjong_rules.py      # Constantes de juego y clasificación de grupos
+│   └── scorer.py             # Motor de puntuación (base, dobles y cantos clásicos)
+├── tests/                    # Pruebas y datasets
+│   ├── data/                 # Datasets de prueba organizados
+│   │   ├── input_maestro.txt
+│   │   ├── soluciones_maestro.txt
+│   │   └── test_readme.txt
+│   └── test.py               # Script de pruebas automatizadas
+├── main.py                   # Script ejecutable principal (orquestador MPI)
+├── requirements.txt          # Dependencias (mpi4py)
+├── .gitignore
+└── README.md
+```
+
 ## 1. Arquitectura del sistema
 
 La arquitectura está basada en el paradigma **Maestro-Trabajador (Master-Worker)**. 
@@ -19,12 +41,14 @@ El sistema está compuesto por una serie de funciones especializadas que dividen
 
 ### Funciones principales y su propósito
 
-1. **`decode_play(line: str) -> dict`**: Ubicada en `parser.py`. Su propósito es "traducir" la cadena de texto plana del archivo de entrada y convertirla en un diccionario estructurado, aislando los vientos, los grupos de mesa, las flores y la pieza ganadora.
-2. **`classify_group(group_str: str) -> dict`**: Analiza un grupo individual (ej: `[P2-P2-P2]`) determinando si es un Pung, Kong, Chow o Par (Ojos), cuál es su pinta base, si pertenece a los honores, y si está en estado oculto o abierto sobre la mesa.
-3. **`detect_classic(groups, flowers, own_wind, round_wind, winning_piece) -> tuple`**: Ubicada en `scorer.py`. Su propósito es auditar la mano completa para verificar si coincide con las estrictas configuraciones de los **Cantos Clásicos o Límites** (ej: 13 Maravillas, Gran Seguidilla Real). Si encaja, devuelve el puntaje fijo de esa mano.
-4. **`calculate_base_points(groups, flowers, has_chow) -> tuple`**: Escanea los grupos de la mano para sumar los puntos "duros" (cuenta base). Otorga puntos por tener flores, bonos matemáticos por tener kongs y pungs (especialmente si son honores), y añade el bono fijo por haber logrado el Mahjong.
-5. **`calculate_doubles(groups, flowers, own_wind, round_wind, has_chow) -> tuple`**: Escanea la mano buscando combinaciones exponenciales. Otorga "dobles" si la mano es Limpia, Sucia, si hay ramilletes de flores completas, o tríos de dragones (Escolares Mayores/Menores).
-6. **`evaluate_hand(parsed_hand: dict) -> dict`**: Es el punto de entrada central del motor de reglas. Su propósito es orquestar a todas las demás funciones de puntuación y aplicar la fórmula matemática final.
+1. **`decode_play(line: str) -> dict`**: Ubicada en [src/parser.py](src/parser.py). Su propósito es "traducir" la cadena de texto plana del archivo de entrada y convertirla en un diccionario estructurado, aislando los vientos, los grupos de mesa, las flores y la pieza ganadora.
+2. **`classify_group(group_str: str) -> dict`**: Ubicada en [src/mahjong_rules.py](src/mahjong_rules.py). Analiza un grupo individual (ej: `[P2-P2-P2]`) determinando si es un Pung, Kong, Chow o Par (Ojos), cuál es su pinta base, si pertenece a los honores, y si está en estado oculto o abierto sobre la mesa.
+3. **`detect_classic(groups, flowers, own_wind, round_wind, winning_piece) -> tuple`**: Ubicada en [src/scorer.py](src/scorer.py). Su propósito es auditar la mano completa para verificar si coincide con las estrictas configuraciones de los **Cantos Clásicos o Límites** (ej: 13 Maravillas, Gran Seguidilla Real). Si encaja, devuelve el puntaje fijo de esa mano.
+4. **`calculate_base_points(groups, flowers, has_chow) -> tuple`**: Ubicada en [src/scorer.py](src/scorer.py). Escanea los grupos de la mano para sumar los puntos "duros" (cuenta base). Otorga puntos por tener flores, bonos matemáticos por tener kongs y pungs (especialmente si son honores), y añade el bono fijo por haber logrado el Mahjong.
+5. **`calculate_doubles(groups, flowers, own_wind, round_wind, has_chow) -> tuple`**: Ubicada en [src/scorer.py](src/scorer.py). Escanea la mano buscando combinaciones exponenciales. Otorga "dobles" si la mano es Limpia, Sucia, si hay ramilletes de flores completas, o tríos de dragones (Escolares Mayores/Menores).
+6. **`evaluate_hand(parsed_hand: dict) -> dict`**: Ubicada en [src/scorer.py](src/scorer.py). Es el punto de entrada central del motor de reglas. Su propósito es orquestar a todas las demás funciones de puntuación y aplicar la fórmula matemática final.
+7. **`process_play(line: str) -> tuple`**: Ubicada en [src/parser.py](src/parser.py). Función de apoyo de alto nivel que encapsula todo el pipeline (decodificación, clasificación de grupos y evaluación) para una jugada individual.
+8. **`get_sort_key(result_item) -> int`**: Ubicada en [src/parser.py](src/parser.py). Función auxiliar global que permite ordenar los resultados numéricamente por su ID.
 
 ### ¿Cómo trabajan en conjunto para sacar las cuentas? (El ciclo completo)
 
@@ -108,3 +132,12 @@ El programa debe correrse sobre el ambiente virtual que contiene `mpi4py`. Para 
 ```bash
 mpiexec -n 4 python main.py <archivo_de_entrada.txt>
 ```
+
+## Pruebas automatizadas
+
+El proyecto incluye un script de pruebas simple y directo en la carpeta [tests/](tests/). Para ejecutarlas desde la raíz:
+
+```bash
+python -m tests.test
+```
+

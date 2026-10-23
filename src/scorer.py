@@ -1,4 +1,5 @@
-from mahjong_rules import WINDS, DRAGONS, SUITS, MINOR_HONORS
+from src.mahjong_rules import WINDS, DRAGONS, SUITS, MINOR_HONORS
+
 
 POINTS_CHOW = 0
 POINTS_FLOWER = 4

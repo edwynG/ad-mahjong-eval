@@ -7,6 +7,7 @@ __pycache__/
 *.so
 *.txt
 !requirements.txt
+!tests/data/*.txt
 
 # Distribution / packaging
 .Python
@@ -142,6 +143,8 @@ venv.bak/
 # mkdocs documentation
 /site
 
+# Cluster
+/cluster
 # mypy
 .mypy_cache/
 .dmypy.json
