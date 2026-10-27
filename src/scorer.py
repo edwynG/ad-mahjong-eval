@@ -22,12 +22,6 @@ def calculate_base_points(groups: list, flowers: list, has_chow: bool) -> tuple:
     base = 0
     log = []
     
-    # Puntos por tener flores
-    if len(flowers) > 0:
-        flower_points = len(flowers) * POINTS_FLOWER
-        base = base + flower_points
-        log.append(f"Flores: {flower_points}")
-
     # Puntos por cada grupo (Pung o Kong)
     for g in groups:
         group_type = g["group_type"]
@@ -37,60 +31,52 @@ def calculate_base_points(groups: list, flowers: list, has_chow: bool) -> tuple:
         
         if group_type == "pung":
             if is_honor:
-                if is_concealed:
-                    group_points = 8
-                else:
-                    group_points = 4
+                group_points = 8 if is_concealed else 4
+                desc = 'pung oculto honor' if is_concealed else 'pung abierto honor'
             else:
-                if is_concealed:
-                    group_points = 4
-                else:
-                    group_points = 2
-            
-            base = base + group_points
-            
-            if is_honor:
-                log.append(f"Pung honor: {group_points}")
-            else:
-                log.append(f"Pung pinta: {group_points}")
-                
+                group_points = 4 if is_concealed else 2
+                desc = 'pung oculto pinta' if is_concealed else 'pung abierto pinta'
+            base += group_points
+            log.append(f"{base} {desc} {group_points} ")
         elif group_type == "kong":
             if is_honor:
-                if is_concealed:
-                    group_points = 32
-                else:
-                    group_points = 16
+                group_points = 32 if is_concealed else 16
+                desc = 'kung oculto honor' if is_concealed else 'kung abierto honor'
             else:
-                if is_concealed:
-                    group_points = 16
-                else:
-                    group_points = 8
-            
-            base = base + group_points
-            
-            if is_honor:
-                log.append(f"Kong honor: {group_points}")
-            else:
-                log.append(f"Kong pinta: {group_points}")
-                
+                group_points = 16 if is_concealed else 8
+                desc = 'kung oculto pinta' if is_concealed else 'kung abierto pinta'
+            base += group_points
+            log.append(f"{base} {desc} {group_points} ")
         elif group_type == "pair":
             base_piece = g["pieces"][0]
-            # Si el par es de dragones, da 4 puntos fijos
-            if base_piece == "DR" or base_piece == "DV" or base_piece == "DB":
+            # Solo los ojos de dragon rojo (DR) dan 4 puntos fijos
+            if base_piece == "DR":
                 group_points = 4
-                base = base + group_points
-                log.append(f"Ojos dragon: {group_points}")
+                base += group_points
+                log.append(f"{base} ojos dragon {group_points} ")
 
     # Bono por hacer Mahjong
     if has_chow:
         bonus = POINTS_MAHJONG_CHOW
+        desc_mahjong = 'mahjong con chow 20 '
     else:
         bonus = POINTS_MAHJONG_PUNG
+        desc_mahjong = 'mahjong sin chow 30 '
         
-    base = base + bonus
-    log.append(f"Bono Mahjong: {bonus}")
+    base += bonus
+    log.append(f"{base} {desc_mahjong}")
 
-    return base, log
+    # Puntos por tener flores
+    if len(flowers) > 0:
+        flower_points = len(flowers) * POINTS_FLOWER
+        base += flower_points
+        log.append(f"{base} flores: {len(flowers)} para {flower_points} puntos")
+
+    raw_base = base
+    rounded_base = int(round(raw_base / 10.0) * 10)
+    log.append(f"Total puntos: {raw_base} para {rounded_base}")
+
+    return rounded_base, log
 
 def calculate_doubles(groups: list, flowers: list, own_wind: str, round_wind: str, has_chow: bool) -> tuple:
     """
@@ -100,123 +86,86 @@ def calculate_doubles(groups: list, flowers: list, own_wind: str, round_wind: st
     log = []
 
     # Contar cuantas flores rojas y negras tenemos
-    red_flowers = []
-    black_flowers = []
+    red_flowers = [f for f in flowers if f.startswith('R')]
+    black_flowers = [f for f in flowers if f.startswith('G')]
     
-    for flower in flowers:
-        if flower.startswith('R'):
-            red_flowers.append(flower)
-        elif flower.startswith('G'):
-            black_flowers.append(flower)
-            
     has_red_bouquet = (len(red_flowers) == 4)
     has_black_bouquet = (len(black_flowers) == 4)
 
-    # Revisar si tenemos la flor que corresponde a nuestro asiento
-    wind_number = WIND_TO_FLOWER_NUM.get(own_wind, '')
-    has_own_flower = False
-    
-    for flower in flowers:
-        if flower.endswith(wind_number):
-            has_own_flower = True
-            break
-
     # Asignar dobles por ramilletes
     if has_red_bouquet:
-        doubles = doubles + 4
+        doubles += 4
         log.append("[+] 4 Dobles: Ramillete Rojo")
         
     if has_black_bouquet:
-        doubles = doubles + 4
+        doubles += 4
         log.append("[+] 4 Dobles: Ramillete Negro")
-    
-    # Asignar doble por flor propia si NO está ya cobrada dentro de un ramillete
-    if has_own_flower:
-        flower_in_red_bouquet = False
-        flower_in_black_bouquet = False
-        
-        if has_red_bouquet:
-            for f in flowers:
-                if f.endswith(wind_number) and f.startswith('R'):
-                    flower_in_red_bouquet = True
-                    break
-                    
-        if has_black_bouquet:
-            for f in flowers:
-                if f.endswith(wind_number) and f.startswith('G'):
-                    flower_in_black_bouquet = True
-                    break
-                    
-        if not flower_in_red_bouquet and not flower_in_black_bouquet:
-            doubles = doubles + 1
-            log.append("[+] 1 Doble: Flor Propia")
 
     # Dobles por vientos y dragones
     for g in groups:
         g_type = g["group_type"]
         if g_type == "pung" or g_type == "kong":
             piece = g["pieces"][0]
-            if piece == own_wind or piece == round_wind:
-                doubles = doubles + 1
-                log.append(f"[+] 1 Doble: Pung/Kong Viento ({piece})")
+            if piece == own_wind:
+                doubles += 1
+                log.append(f"[+] 1 Doble: Pung/Kung de Viento Propio ({piece})")
+            elif piece == round_wind:
+                doubles += 1
+                log.append(f"[+] 1 Doble: Pung/Kung de Viento de Ronda ({piece})")
             elif piece in DRAGONS:
-                doubles = doubles + 1
-                log.append(f"[+] 1 Doble: Pung/Kong Dragón ({piece})")
+                doubles += 1
+                log.append(f"[+] 1 Doble: Pung/Kung de Dragon ({piece})")
+
+    # Asignar doble por cada flor propia (salvo si ya está en ramillete completo de su color)
+    wind_number = WIND_TO_FLOWER_NUM.get(own_wind, '')
+    for f in flowers:
+        if f.endswith(wind_number):
+            if f.startswith('R') and has_red_bouquet:
+                continue
+            if f.startswith('G') and has_black_bouquet:
+                continue
+            doubles += 1
+            log.append(f"[+] 1 Doble: Flor Propia detectada ({f})")
 
     # Separar grupos para evaluar mahjong limpio/sucio
-    chows = []
-    honor_pungs = []
-    
-    for g in groups:
-        if g["group_type"] == "chow":
-            chows.append(g)
-        elif g["group_type"] == "pung" or g["group_type"] == "kong":
-            if g["nature"] == "suit" and g["is_honor"]:
-                honor_pungs.append(g)
-                
-    # Obtener todas las pintas distintas usadas en la mano
     used_suits = []
     for g in groups:
         if g["nature"] == "suit" or g["group_type"] == "chow":
             suit_char = g["pieces"][0][0]
             if suit_char not in used_suits:
                 used_suits.append(suit_char)
-                
-    num_suits = len(used_suits)
-    
-    # Contar si hay vientos o dragones
-    has_winds_or_dragons = False
+
+    has_winds_or_dragons = any(g["nature"] in ["wind", "dragon"] for g in groups)
+    chows = [g for g in groups if g["group_type"] == "chow"]
+
+    suit_numbers = set()
     for g in groups:
-        if g["nature"] == "wind" or g["nature"] == "dragon":
-            has_winds_or_dragons = True
-            break
-            
-    is_clean_hand = (num_suits == 1)
+        if g["nature"] == "suit" or g["group_type"] == "chow":
+            for piece in g["pieces"]:
+                if len(piece) > 1 and piece[1].isdigit():
+                    suit_numbers.add(piece[1])
 
     # Evaluar MAH-JONGG LIMPIO
-    if is_clean_hand and has_winds_or_dragons == False:
+    if len(used_suits) == 1 and not has_winds_or_dragons:
         if len(chows) == 0:
-            if len(honor_pungs) > 0:
-                doubles = doubles + 3
-                log.append("[+] 3 Dobles: Limpio Honores")
-            else:
-                doubles = doubles + 5
-                log.append("[+] 5 Dobles: Limpio puros pungs")
+            doubles += 5
+            log.append("[+] 5 Dobles: MAH-JONGG LIMPIO (Solo Pungs/Kungs de una pinta)")
         elif len(chows) == 4:
-            doubles = doubles + 4
-            log.append("[+] 4 Dobles: Limpio puros chows")
+            doubles += 4
+            log.append("[+] 4 Dobles: MAH-JONGG LIMPIO (Solo Chows de una pinta)")
         else:
-            doubles = doubles + 3
-            log.append("[+] 3 Dobles: Limpio pungs y chows")
+            doubles += 3
+            log.append("[+] 3 Dobles: MAH-JONGG LIMPIO (Pungs y Chows de una pinta)")
             
-    # Evaluar MAH-JONGG SUCIO
-    if num_suits == 1 and has_winds_or_dragons == True:
-        if len(chows) == 0:
-            doubles = doubles + 2
-            log.append("[+] 2 Dobles: Sucio pinta sin chow")
+    # Evaluar MAH-JONGG SUCIO / LIMPIO HONORES
+    elif len(used_suits) == 1 and has_winds_or_dragons:
+        if '1' in suit_numbers and '9' in suit_numbers and len(chows) == 0:
+            suit_name = used_suits[0]
+            doubles += 3
+            log.append(f"[+] 3 Dobles: MAH-JONGG LIMPIO Honores (Pinta {suit_name} con Ases y Nueves)")
         else:
-            doubles = doubles + 1
-            log.append("[+] 1 Doble: Sucio pinta con chow")
+            doubles += 2
+            log.append("[+] 2 Dobles: MAH-JONGG SUCIO (Honores con pinta)")
 
     # Evaluar ESCOLARES
     dragon_pungs = []
@@ -231,10 +180,10 @@ def calculate_doubles(groups: list, flowers: list, own_wind: str, round_wind: st
                 has_dragon_pair = True
                 
     if len(dragon_pungs) == 3:
-        doubles = doubles + 4
+        doubles += 4
         log.append("[+] 4 Dobles: Escolares Mayores")
     elif len(dragon_pungs) == 2 and has_dragon_pair:
-        doubles = doubles + 3
+        doubles += 3
         log.append("[+] 3 Dobles: Escolares Menores")
 
     return doubles, log
@@ -283,27 +232,16 @@ def detect_classic(groups: list, flowers: list, own_wind: str, round_wind: str, 
         if is_grandes_samurais and all_hidden:
             return 20000, "GRANDES SAMURAIS", []
             
-        # HIJOS UNIDOS (20.000 puntos)
-        # Requisitos: 7 pares exclusivos de ases y nueves de cualquier pinta. Debe ser totalmente oculta.
-        is_hijos_unidos = True
-        for p in all_pieces:
-            is_minor_honor = len(p) > 1 and p[1] in MINOR_HONORS
-            if not is_minor_honor:
-                is_hijos_unidos = False
-                break
-        if is_hijos_unidos and all_hidden:
-            return 20000, "HIJOS UNIDOS", []
-
     # LA FLOR DEL CEREZO (20.000 puntos)
-    # Requisitos: Que la pieza ganadora sea el 5 de Ruedas (B5) y se tenga la flor propia del viento
+    # Requisitos: Que la pieza ganadora sea el 5 de Ruedas (B5) y se haya cargado la flor propia (última flor obtenida)
     wind_number = WIND_TO_FLOWER_NUM.get(own_wind, '')
-    has_own_flower = False
-    for flower in flowers:
-        if flower.endswith(wind_number):
-            has_own_flower = True
-            break
-    if winning_piece == "B5" and has_own_flower:
-        return 20000, "LA FLOR DEL CEREZO", ["B5 ganadora y flor propia"]
+    if winning_piece == "B5" and flowers and flowers[-1].endswith(wind_number):
+        return 20000, "LA FLOR DEL CEREZO", ["B5 ganadora y flor propia cargada"]
+
+    # PESCANDO LA LUNA DEL FONDO DEL MAR (20.000 puntos)
+    # Requisitos: Hacer Mahjong con el as de ruedas (B1) como última pieza de la jugada
+    if winning_piece == "B1":
+        return 20000, "PESCANDO LA LUNA DEL FONDO DEL MAR", ["B1 ganadora"]
 
     # === BLOQUE 15.000 PUNTOS ===
     
@@ -491,21 +429,13 @@ def detect_classic(groups: list, flowers: list, own_wind: str, round_wind: str, 
 
     # 13 MARAVILLAS (2.500 puntos)
     # Requisitos: 1 honor de cada uno (4 vientos, 3 dragones, 6 ases/nueves), y uno de ellos repetido para formar el par. Debe ser totalmente oculta.
-    all_honors_required = []
-    for w in WINDS: all_honors_required.append(w)
-    for d in DRAGONS: all_honors_required.append(d)
-    for s in SUITS:
-        all_honors_required.append(s + '1')
-        all_honors_required.append(s + '9')
+    all_honors_set = set(WINDS) | set(DRAGONS) | {s + '1' for s in SUITS} | {s + '9' for s in SUITS}
+    flat_pieces = []
+    for g in groups:
+        flat_pieces.extend(g["pieces"])
         
-    if len(groups) == 13 and len(all_pieces) == 13:
-        is_13_maravillas = True
-        for piece in all_pieces:
-            if piece not in all_honors_required:
-                is_13_maravillas = False
-                break
-        if is_13_maravillas and all_hidden:
-            return 2500, "13 MARAVILLAS", []
+    if len(flat_pieces) == 14 and set(flat_pieces) == all_honors_set and all_hidden:
+        return 2500, "13 MARAVILLAS", []
 
     # Si no encaja en ninguna, devolvemos 0 puntos de clásicos
     return 0, "", []
@@ -525,11 +455,6 @@ def evaluate_hand(parsed_hand: dict) -> dict:
         if g["group_type"] == "chow":
             has_chow = True
             break
-    
-    # Manejo de fallos en grupos
-    for g in groups:
-        if g["group_type"] == "invalid":
-            return {"visual": parsed_hand.get("visual", ""), "base": 0, "dobles": 0, "total": 0, "estilo": "INVALIDO", "log": ["Grupos inválidos encontrados."]}
 
     classic_points, classic_name, classic_log = detect_classic(groups, flowers, own_wind, round_wind, winning_piece)
 
@@ -537,26 +462,33 @@ def evaluate_hand(parsed_hand: dict) -> dict:
         base = classic_points
         style = classic_name
         log = [f"Mano Clásica: {style}"] + classic_log
+        
+        # En manos clásicas los dobles tradicionales no aplican.
+        # Si es viento ESTE y la mano es menor a 15.000 puntos, duplica (1 doble)
+        if own_wind == 'E' and classic_points < 15000:
+            doubles = 1
+            total = base * 2
+            log.append("ESTE cobra doble")
+        else:
+            doubles = 0
+            total = base
     else:
+        # Manejo de fallos en grupos para manos tradicionales
+        for g in groups:
+            if g["group_type"] in ["invalid", "single"]:
+                return {"visual": parsed_hand.get("visual", ""), "base": 0, "dobles": 0, "total": 0, "estilo": "INVALIDO", "log": ["Grupos inválidos encontrados."]}
+
         style = "TRADICIONAL"
         base, b_log = calculate_base_points(groups, flowers, has_chow)
         log = b_log
 
-    doubles, d_log = calculate_doubles(groups, flowers, own_wind, round_wind, has_chow)
-    
-    for l in d_log:
-        log.append(l)
+        doubles, d_log = calculate_doubles(groups, flowers, own_wind, round_wind, has_chow)
+        for l in d_log:
+            log.append(l)
 
-    total = base * (2 ** doubles)
-    
-    # El viento Este (E) siempre duplica la cuenta al final (cobra y paga doble)
-    if own_wind == 'E':
-        # Hay una regla del manual: un clásico de 15.000 o 20.000 NO SE DOBLA para el Este
-        if classic_points >= 15000:
-             pass 
-        else:
-             total = total * 2
-             log.append("ESTE cobra doble")
+        raw_total = base * (2 ** doubles)
+        total = int(round(raw_total / 100.0) * 100)
+        log.append(f"Total mano: {raw_total} para {total}")
 
     if total > MAX_TOTAL_POINTS:
         total = MAX_TOTAL_POINTS

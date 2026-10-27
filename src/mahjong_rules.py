@@ -36,7 +36,7 @@ def classify_group(raw_group: str) -> dict:
     elif raw.startswith('{') and raw.endswith('}'):
         visibility = "concealed"
     elif raw.startswith('(') and raw.endswith(')'):
-        visibility = "open"
+        visibility = "concealed"
         
     clean_group = raw[1:-1]
     pieces = clean_group.split('-')
@@ -45,7 +45,9 @@ def classify_group(raw_group: str) -> dict:
     unique_pieces = set(pieces)
     
     if len(unique_pieces) == 1:
-        if length == 2:
+        if length == 1:
+            group_type = "single"
+        elif length == 2:
             group_type = "pair"
         elif length == 3:
             group_type = "pung"
