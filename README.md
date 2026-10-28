@@ -6,12 +6,13 @@ Este proyecto implementa un sistema distribuido en Python diseñado para procesa
 
 ```text
 proyect_mohjong/
-├── docs/                     # Enunciado y especificación de reglas en PDF
+├── docs/                     # Enunciado, reglas y diagrama de arquitectura
+│   └── diagrama_comunicacion # Diagrama de secuencia del flujo MPI
 ├── src/                      # Módulos y motor de evaluación
 │   ├── __init__.py           # Paquete Python
 │   ├── parser.py             # Decodificación y funciones de soporte (process_play, get_sort_key)
 │   ├── mahjong_rules.py      # Constantes de juego y clasificación de grupos
-│   └── scorer.py             # Motor de puntuación (base, dobles y cantos clásicos)
+│   └── scorer.py             # Motor de puntuación (base, dobles, cantos clásicos y Ramos Prince)
 ├── tests/                    # Pruebas y datasets
 │   ├── data/                 # Datasets de prueba organizados
 │   │   ├── input_maestro.txt
@@ -19,6 +20,7 @@ proyect_mohjong/
 │   │   └── test_readme.txt
 │   └── test.py               # Script de pruebas automatizadas
 ├── main.py                   # Script ejecutable principal (orquestador MPI)
+├── salida.txt                # Archivo unificado de salida generado por el proceso Maestro
 ├── requirements.txt          # Dependencias (mpi4py)
 ├── .gitignore
 └── README.md
@@ -66,17 +68,22 @@ El diccionario, ahora totalmente desglosado y clasificado, entra a `evaluate_han
 2. Si no es clásica, delega el trabajo a `calculate_base_points()` para contar los puntos duros (flores y pungs).
 3. Luego, le pasa la mano a `calculate_doubles()` para contar cuántos multiplicadores exponenciales posee (por ejemplo, si la mano es Limpia o tiene Escolares).
 
-**Paso 4: La fórmula matemática final**
-Dentro de ese mismo `evaluate_hand`, habiendo recolectado la base y los dobles de sus sub-funciones, se aplica la fórmula de cierre:
+**Paso 4: La fórmula matemática final (Estándar Ramos Prince)**
+Dentro de ese mismo `evaluate_hand`, habiendo recolectado la base y los dobles de sus sub-funciones, se aplica el cálculo y redondeo según las reglas oficiales:
+1. La **cuenta base** se redondea a la decena más cercana (`int(round(raw_base / 10.0) * 10)`).
+2. Para manos tradicionales, el cálculo exponencial es: `raw_total = base * (2 ** doubles)`.
+3. Para manos clásicas con puntaje base menor a 15.000 puntos, si el jugador es viento Este (`E`), la mano cobra doble (1 doble: `total = base * 2`).
+4. En manos tradicionales, el **puntaje total** se redondea a la centena más cercana (`int(round(raw_total / 100.0) * 100)`).
+5. Se aplica el **tope máximo oficial** del juego (20.000 puntos).
+
 ```python
-# Fórmula oficial: Base multiplicada por 2 elevado a la cantidad de dobles
-total = base * (2 ** doubles)
+# Fórmula oficial y redondeo Ramos Prince para manos tradicionales:
+raw_total = base * (2 ** doubles)
 
-# Regla Especial: El viento Este (E) siempre duplica la cuenta al final
-if own_wind == 'E': 
-    total *= 2
+# Redondeo a la centena más cercana
+total = int(round(raw_total / 100.0) * 100)
 
-# Se aplica el tope máximo oficial del juego (20.000 puntos)
+# Tope máximo
 if total > MAX_TOTAL_POINTS:
     total = MAX_TOTAL_POINTS
 ```
@@ -98,6 +105,10 @@ En lugar de enviar mensajitos individuales por cada línea de texto (lo cual sat
 1. **La dispersión (`comm.scatter`):** El Maestro agarra la lista gigante de jugadas y la pica. Si hay 4 procesos corriendo, hace 4 listas más pequeñas. Luego lanza un "scatter", que es básicamente un envío masivo donde le tira a cada proceso su lista correspondiente en un solo movimiento.
 2. **La recolección (`comm.gather`):** Cuando los trabajadores terminan de sacar sus cuentas, tienen una lista de resultados listos. A través del "gather", le devuelven todos esos pedazos al Maestro de un solo golpe. La gran ventaja del gather es que automáticamente respeta el orden original de los procesos, garantizando que el archivo de salida mantenga el mismo orden exacto que el de entrada.
 
+### Diagrama de comunicación y flujo MPI
+
+![Diagrama de Comunicación MPI](docs/diagrama_comunicacion.png)
+
 ### Ejemplo práctico de entrada y salida
 
 Para entender cómo estos mensajes transportan y transforman la data, veamos un caso real de lo que viaja por la red:
@@ -115,27 +126,67 @@ El trabajador recibe esa línea, la desarma, e identifica lo siguiente:
 *   **Viento del Jugador:** Es viento Este `[E / E]`.
 
 Con esto, el sistema saca las cuentas reales paso a paso:
-1. **Puntos Base (38 en total):** 12 puntos por las 3 flores + 6 puntos por los tres Pungs descubiertos + 20 puntos del gran bono por hacer Mahjong.
-2. **Dobles o Multiplicadores (4 en total):** 3 dobles de premio por ser un "Mahjong Limpio" (todas las fichas son Caracteres y usó un Chow) + 1 doble por "Flor Propia" (el jugador es Este [1] y sacó la Roja 1).
-3. **Fórmula Matemática:** La Base `38` se multiplica por 2 elevado a los `4` dobles (38 * 16 = 608). Como el jugador es viento Este, la regla oficial le premia duplicando su cuenta al final: `608 * 2 = 1216`.
+1. **Puntos Base (38 brutos → 40 redondeados):** 6 puntos por los tres Pungs descubiertos (2 pts cada uno por ser pintas simples C2, C5, C8) + 20 puntos de bono por Mahjong con Chow + 12 puntos por las 3 flores. Total bruto: 38 puntos, que se redondea a la decena más cercana (**40 puntos base**).
+2. **Dobles o Multiplicadores (4 en total):** 1 doble por Flor Propia detectada (R1 con viento Este) + 3 dobles por Mahjong Limpio (todas las fichas son de una misma pinta usando Chows y Pungs). Total: **4 dobles**.
+3. **Fórmula Matemática:** La Base `40` se multiplica por 2 elevado a los `4` dobles ($40 \times 16 = 640$). Finalmente, según el estándar Ramos Prince, se redondea a la centena más cercana: **`600` puntos**.
 
-**Lo que sale del sistema (lo que recibe el Maestro en el gather):**
+**Lo que sale del sistema (lo que consolida el Maestro en `salida.txt`):**
 ```text
-1 [E / E] [C2-C3-C4] [C5-C5-C5] [C2-C2-C2] [C8-C8-C8] (C6-C6) <G3 R1 R4> *C6* | 38 | 4 | 1216 | TRADICIONAL | ['Flores: 12', 'Bono Mahjong: 20', '[+] 1 Doble: Flor Propia', '[+] 3 Dobles: Limpio pungs y chows', 'ESTE cobra doble', ...]
+1 [E / E] [C2-C3-C4] [C5-C5-C5] [C2-C2-C2] [C8-C8-C8] (C6-C6) <G3 R1 R4> *C6* | 40 | 4 | 600 | TRADICIONAL | ['2 pung abierto pinta 2 ', '4 pung abierto pinta 2 ', '6 pung abierto pinta 2 ', '26 mahjong con chow 20 ', '38 flores: 3 para 12 puntos', 'Total puntos: 38 para 40', '[+] 1 Doble: Flor Propia detectada (R1)', '[+] 3 Dobles: MAH-JONGG LIMPIO (Pungs y Chows de una pinta)', 'Total mano: 640 para 600']
 ```
-*¿Qué es esto?* El trabajador le devolvió al Maestro la misma línea, pero le anexó puntos base (38), los dobles encontrados (4), la puntuación total matemática real (1216), el estilo de mano (Tradicional), y un arreglo tipo bitácora explicando exactamente de dónde salieron esos números.
 
-## Instrucciones de ejecución
+## 4. Formato del archivo de salida (`salida.txt`)
 
-El programa debe correrse sobre el ambiente virtual que contiene `mpi4py`. Para ejecutar en paralelo utilizando por ejemplo 4 núcleos y el archivo de entrada deseado:
+El archivo de salida unificado cumple estrictamente con el formato estipulado en las especificaciones oficiales:
+
+1. **Cada jugada en una sola línea**, con los campos delimitados por barras verticales `|`:
+   ```text
+   # Visual Completo | Cuenta Base | Dobles | Total | Estilo de Mano | [Historial/log]
+   ```
+2. **Última línea de tiempo de cálculo**: Justo después de la última jugada, se incorpora la línea de métricas temporales:
+   ```text
+   Fecha inicio | Fecha fin | Tiempo en segundos
+   ```
+   *(Ejemplo: `2026-10-28 16:12:49 | 2026-10-28 16:12:49 | 0.0022`)*
+
+## 5. Instrucciones de ejecución
+
+El programa debe correrse sobre el ambiente virtual o entorno que contenga `mpi4py`. Para ejecutar en paralelo utilizando por ejemplo 4 procesos:
 
 ```bash
-mpiexec -n 4 python main.py <archivo_de_entrada.txt>
+# Especificando archivo de entrada y salida opcional:
+mpiexec -n 4 python main.py <archivo_de_entrada.txt> [archivo_de_salida.txt]
+
+# Ejecución por defecto (busca automáticamente input.txt o input_maestro.txt y genera salida.txt):
+mpiexec -n 4 python main.py
 ```
 
-## Pruebas automatizadas
+## 6. Cobertura de Manos Clásicas
 
-El proyecto incluye un script de pruebas simple y directo en la carpeta [tests/](tests/). Para ejecutarlas desde la raíz:
+El motor de reglas ([src/scorer.py](src/scorer.py)) implementa y valida con exactitud las **16 Manos Clásicas y Límites** definidas en la especificación oficial:
+
+| Mano Clásica | Puntaje Base | Condición de duplicación para viento Este |
+| :--- | :---: | :---: |
+| Gran Seguidilla Real | 2.500 pts | Duplica ($2 \times$ base) si es viento Este |
+| 7 Samuráis | 2.500 pts | Duplica ($2 \times$ base) si es viento Este |
+| 13 Maravillas | 2.500 pts | Duplica ($2 \times$ base) si es viento Este |
+| Ases y Nueves | 5.000 pts | Duplica ($2 \times$ base) si es viento Este |
+| Jaspe Verde | 5.000 pts | Duplica ($2 \times$ base) si es viento Este |
+| Hijos de la Noche | 7.500 pts | Duplica ($2 \times$ base) si es viento Este |
+| Tifón Oriental | 10.000 pts | Duplica ($2 \times$ base) si es viento Este |
+| Rosa de los Vientos | 10.000 pts | Duplica ($2 \times$ base) si es viento Este |
+| Armonía Celeste | 10.000 pts | Duplica ($2 \times$ base) si es viento Este |
+| Jaspe Rojo | 15.000 pts | Puntaje fijo (Tope directo) |
+| Bendición Celestial | 15.000 pts | Puntaje fijo (Tope directo) |
+| Gran Muralla China | 15.000 pts | Puntaje fijo (Tope directo) |
+| Ciudad Prohibida | 15.000 pts | Puntaje fijo (Tope directo) |
+| Grandes Samuráis | 20.000 pts | Puntaje fijo (Tope máximo) |
+| La Flor del Cerezo | 20.000 pts | Puntaje fijo (Tope máximo) |
+| Pescando la Luna del Fondo del Mar | 20.000 pts | Puntaje fijo (Tope máximo) |
+
+## 7. Pruebas automatizadas
+
+El proyecto incluye una suite de pruebas automatizadas en la carpeta [tests/](tests/) que valida tanto las 16 manos clásicas como la consistencia del 100% de las jugadas del examen maestro:
 
 ```bash
 python -m tests.test
