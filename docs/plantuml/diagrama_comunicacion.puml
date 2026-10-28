@@ -1,0 +1,69 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 10
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+
+<style>
+sequenceDiagram {
+  participant {
+    Padding 14
+    FontStyle bold
+  }
+}
+</style>
+
+skinparam participant {
+    BackgroundColor #EBF8FF
+    BorderColor #3182CE
+    FontColor #2B6CB0
+}
+
+skinparam database {
+    BackgroundColor #EDF2F7
+    BorderColor #4A5568
+    FontColor #1A202C
+    FontStyle bold
+}
+
+database "  Disco E/S\n  " as Disk
+participant "     Maestro     \n     Rank 0     " as Master
+participant "     Worker 1     \n     Rank 1     " as W1
+participant "     Worker N     \n     Rank N     " as WN
+
+== 1. Lectura centralizada ==
+alt Archivo especificado por argumento
+    Disk -> Master : Lectura de archivo indicado
+else Sin argumentos de entrada
+    Disk -> Master : Búsqueda y lectura de input.txt por defecto
+end
+activate Master #EBF8FF
+
+Master -> Master : Divide jugadas en bloques balanceados
+
+== 2. Dispersión colectiva ==
+Master -> W1 : comm.scatter bloque 1
+activate W1 #F0FFF4
+Master -> WN : comm.scatter bloque N
+activate WN #F0FFF4
+
+== 3. Computación paralela en memoria ==
+Master -> Master : process_play:\ndecode_play, classify_group, evaluate_hand
+W1 -> W1 : process_play:\ndecode_play, classify_group, evaluate_hand
+WN -> WN : process_play:\ndecode_play, classify_group, evaluate_hand
+
+== 4. Recolección colectiva ==
+W1 --> Master : comm.gather resultados 1
+deactivate W1
+WN --> Master : comm.gather resultados N
+deactivate WN
+
+== 5. Ordenamiento y escritura ==
+Master -> Master : get_sort_key\nOrdena resultados por ID numérico
+Master -> Disk : Escribe salida.txt unificado
+deactivate Master
+
+@enduml

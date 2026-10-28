@@ -1,4 +1,4 @@
-# Evaluación masiva de Mahjong (Proyecto 2026-01)
+# Evaluación masiva de Mahjong
 
 Este proyecto implementa un sistema distribuido en Python diseñado para procesar masivamente miles de configuraciones de jugadas de Mahjong. El sistema calcula las puntuaciones base, dobles, estilo de la mano e interpreta sintácticamente cada jugada basándose en las reglas del Mahjong (incluyendo Cantos Clásicos y Límites). Debido al alto volumen del dataset, el cálculo está paralelizado sobre un ambiente de paso de mensajes utilizando **MPI (`mpi4py`)**.
 
@@ -6,8 +6,12 @@ Este proyecto implementa un sistema distribuido en Python diseñado para procesa
 
 ```text
 proyect_mohjong/
-├── docs/                     # Enunciado, reglas y diagrama de arquitectura
-│   └── diagrama_comunicacion # Diagrama de secuencia del flujo MPI
+├── docs/                     # Enunciado, reglas y diagramas
+│   ├── plantuml/             # Fuentes editables PlantUML (.puml)
+│   │   ├── diagrama_arquitectura.puml
+│   │   └── diagrama_comunicacion.puml
+│   ├── diagrama_arquitectura.png # Diagrama de arquitectura y topología de nodos
+│   └── diagrama_comunicacion.png # Diagrama de secuencia del flujo MPI
 ├── src/                      # Módulos y motor de evaluación
 │   ├── __init__.py           # Paquete Python
 │   ├── parser.py             # Decodificación y funciones de soporte (process_play, get_sort_key)
@@ -36,6 +40,10 @@ Para organizarlo, dividimos los roles en dos partes muy claras:
 
 *   **El proceso maestro (Rank 0):** Es como el director de la orquesta. Él es el único que interactúa con los archivos. Lee todas las jugadas de golpe, las pica en pedazos iguales y le reparte un pedazo a cada trabajador. Al final, se queda esperando a que todos terminen, recoge las respuestas, las vuelve a armar en el orden correcto y guarda el archivo de salida. Centralizar la lectura y escritura en este nodo evita que todos los procesos intenten escribir al mismo tiempo y colapsen el sistema.
 *   **Los procesos trabajadores (Workers):** Son los obreros matemáticos. Cada uno recibe su pedazo de texto, lo procesa línea por línea sacando las cuentas, y cuando termina, empaqueta sus resultados y se los devuelve al Maestro.
+
+### Diagrama de arquitectura del sistema
+
+![Diagrama de Arquitectura del Sistema](docs/diagrama_arquitectura.png)
 
 ## 2. Funcionalidad y lógica de cálculo
 
