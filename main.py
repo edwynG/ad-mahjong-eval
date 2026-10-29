@@ -4,6 +4,14 @@ import time
 from mpi4py import MPI
 from src.parser import process_play, get_sort_key
 
+# Asegurar compatibilidad de salida UTF-8 en terminales modernas
+try:
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 
 def main():
     """
@@ -31,6 +39,8 @@ def main():
         # Respaldo: Si no se pasa argumento, busca archivos por defecto
         elif os.path.exists("input.txt"):
             input_file = "input.txt"
+        elif os.path.exists(os.path.expanduser("~/input.txt")):
+            input_file = os.path.expanduser("~/input.txt")
 
         if input_file and os.path.exists(input_file):
             try:
@@ -43,7 +53,7 @@ def main():
                 print(f"[Rank 0 - ERROR] No se pudo leer el archivo '{input_file}': {e}")
                 comm.Abort(1)
         else:
-            print("[Rank 0 - ERROR] No se proporcionó archivo de entrada ni se encontró 'input.txt'.")
+            print("[Rank 0 - ERROR] No se proporciono archivo de entrada ni se encontro 'input.txt'.")
             print("Uso: mpiexec -n <procesos> python main.py <archivo_entrada> [archivo_salida]")
             comm.Abort(1)
             
