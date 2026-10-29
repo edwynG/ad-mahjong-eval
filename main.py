@@ -57,11 +57,10 @@ def main():
             print("Uso: mpiexec -n <procesos> python main.py <archivo_entrada> [archivo_salida]")
             comm.Abort(1)
             
-    # Dispersar datos: El proceso Raíz (Rank 0) reparte las jugadas entre todos los procesos (Scatter)
+    # Dispersar datos: Reparto balanceado contiguo para máxima velocidad (Scatter)
     if rank == 0:
-        chunks = [[] for _ in range(size)]
-        for i, line in enumerate(lines):
-            chunks[i % size].append(line)
+        k, m = divmod(len(lines), size)
+        chunks = [lines[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(size)]
     else:
         chunks = None
     

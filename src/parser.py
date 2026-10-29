@@ -2,6 +2,11 @@ import re
 from src.mahjong_rules import classify_group
 from src.scorer import evaluate_hand
 
+# Expresiones regulares precompiladas para máxima velocidad en datasets masivos
+RE_WINDS = re.compile(r'\[(.*?)/(.*?)\]')
+RE_FLOWERS = re.compile(r'<(.*?)>')
+RE_WINNING = re.compile(r'\*(.*?)\*')
+
 
 # Lee una línea completa de texto (como "1 [E / E] ...") y recorta sus pedazos: ID, vientos, piezas y flores.
 def decode_play(visual_line):
@@ -16,21 +21,21 @@ def decode_play(visual_line):
     remaining_line = id_parts[1] if len(id_parts) > 1 else ''
     
     # Extraer Vientos [VP / VR]
-    winds_match = re.search(r'\[(.*?)/(.*?)\]', remaining_line)
+    winds_match = RE_WINDS.search(remaining_line)
     own_wind, round_wind = None, None
     if winds_match:
         own_wind = winds_match.group(1).strip()
         round_wind = winds_match.group(2).strip()
         
     # Extraer Flores <...>
-    flowers_match = re.search(r'<(.*?)>', remaining_line)
+    flowers_match = RE_FLOWERS.search(remaining_line)
     flowers = []
     if flowers_match and flowers_match.group(1).strip():
         # Separamos las flores encontradas por espacios
         flowers = flowers_match.group(1).strip().split()
         
     #  Extraer Pieza Ganadora *...*
-    winning_match = re.search(r'\*(.*?)\*', remaining_line)
+    winning_match = RE_WINNING.search(remaining_line)
     winning_piece = winning_match.group(1).strip() if winning_match else None
     
     # Extraer Grupos de la mano (lo que está entre los vientos y las flores o la ganadora)
