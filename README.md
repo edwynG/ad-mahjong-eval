@@ -24,7 +24,6 @@ proyect_mohjong/
 │   │   └── test_readme.txt
 │   └── test.py               # Script de pruebas automatizadas
 ├── main.py                   # Script ejecutable principal (orquestador MPI)
-├── salida.txt                # Archivo unificado de salida generado por el proceso Maestro
 ├── requirements.txt          # Dependencias (mpi4py)
 ├── .gitignore
 └── README.md
@@ -143,7 +142,7 @@ Con esto, el sistema saca las cuentas reales paso a paso:
 1 [E / E] [C2-C3-C4] [C5-C5-C5] [C2-C2-C2] [C8-C8-C8] (C6-C6) <G3 R1 R4> *C6* | 40 | 4 | 600 | TRADICIONAL | ['2 pung abierto pinta 2 ', '4 pung abierto pinta 2 ', '6 pung abierto pinta 2 ', '26 mahjong con chow 20 ', '38 flores: 3 para 12 puntos', 'Total puntos: 38 para 40', '[+] 1 Doble: Flor Propia detectada (R1)', '[+] 3 Dobles: MAH-JONGG LIMPIO (Pungs y Chows de una pinta)', 'Total mano: 640 para 600']
 ```
 
-## 4. Formato del archivo de salida (`salida.txt`)
+## 4. Formato del archivo de salida
 
 El archivo de salida unificado cumple estrictamente con el formato estipulado en las especificaciones oficiales:
 
@@ -165,11 +164,11 @@ El programa debe correrse sobre el ambiente virtual o entorno que contenga `mpi4
 # Especificando archivo de entrada y salida opcional:
 mpiexec -n 4 python main.py <archivo_de_entrada.txt> [archivo_de_salida.txt]
 
-# Ejecución por defecto (busca automáticamente input.txt o input_maestro.txt y genera salida.txt):
+# Ejecución por defecto (busca automáticamente input.txt o input_maestro.txt y genera output.txt):
 mpiexec -n 4 python main.py
 ```
 
-## 6. Cobertura de Manos Clásicas
+## 6. Cobertura de manos clásicas
 
 El motor de reglas ([src/scorer.py](src/scorer.py)) implementa y valida con exactitud las **16 Manos Clásicas y Límites** definidas en la especificación oficial:
 

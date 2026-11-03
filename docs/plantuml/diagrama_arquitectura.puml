@@ -40,7 +40,7 @@ node "Nodo maestro - Rank 0" as MasterNode #EBF8FF {
     [          Lector y particionador de carga          ] as Part
     [          Motor de evaluación en memoria:\nparser, scorer, rules          ] as MasterEval
     [          Colector y ordenador de resultados          ] as Sorter
-    file "salida.txt" as OUT
+    file "output.txt" as OUT
     
     IN -down-> Part : Lectura local
     Part -down-> MasterEval : Porción local

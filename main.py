@@ -24,7 +24,7 @@ def main():
     start_time = time.time()
     
     lines = []
-    output_filename = "salida.txt"
+    output_filename = "output.txt"
 
     # En un entorno distribuido, SOLO el proceso Maestro (Rank 0) interactúa con el disco
     # para leer la entrada y coordinar el trabajo, evitando colisiones de I/O.

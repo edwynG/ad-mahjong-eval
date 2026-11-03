@@ -63,7 +63,7 @@ deactivate WN
 
 == 5. Ordenamiento y escritura ==
 Master -> Master : get_sort_key\nOrdena resultados por ID numérico
-Master -> Disk : Escribe salida.txt unificado
+Master -> Disk : Escribe output.txt unificado
 deactivate Master
 
 @enduml
